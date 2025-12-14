@@ -1,0 +1,56 @@
+"""WAHA - WhatsApp HTTP API Client Library.
+
+Auto-generated from the WAHA OpenAPI specification.
+
+Usage:
+    from waha import Client
+
+    # Create client (uses WAHA_URL and WAHA_API_KEY env vars)
+    client = Client()
+
+    # Get a session
+    session = client.session("default")
+
+Environment Variables:
+    WAHA_URL: The base URL for the WAHA API (default: http://localhost:3000)
+    WAHA_API_KEY: The API key for authentication
+    WAHA_SESSION: The default session name (default: default)
+"""
+
+from __future__ import annotations
+
+from .client import AuthenticatedClient
+from .wrapper import (
+    Client,
+    Session,
+    SessionManager,
+{% for entity in entities %}
+    {{ entity.name }},
+{% endfor %}
+)
+from .errors import APIError, AuthenticationError, UnexpectedStatus, ValidationError, WAHAError
+from .types import UNSET, Response, Unset
+
+__version__ = "0.1.0"
+
+__all__ = [
+    # Client
+    "AuthenticatedClient",
+    "Client",
+    "Session",
+    "SessionManager",
+    # Entities (auto-generated from x-waha-entity schemas)
+{% for entity in entities %}
+    "{{ entity.name }}",
+{% endfor %}
+    # Errors
+    "APIError",
+    "AuthenticationError",
+    "UnexpectedStatus",
+    "ValidationError",
+    "WAHAError",
+    # Types
+    "Response",
+    "UNSET",
+    "Unset",
+]

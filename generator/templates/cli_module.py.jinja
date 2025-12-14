@@ -1,0 +1,233 @@
+"""{{ tag | pascal_case }} CLI commands - Auto-generated from OpenAPI spec."""
+
+from __future__ import annotations
+
+import json
+import os
+from typing import Annotated, Optional
+
+import typer
+from rich import print as rprint
+
+from ..api import {{ tag }}
+from ..client import AuthenticatedClient
+{% set model_imports = [] %}
+{% for endpoint in endpoints %}
+{% if endpoint.body and endpoint.body.type_hint not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and '|' not in endpoint.body.type_hint and 'list[' not in endpoint.body.type_hint and 'dict[' not in endpoint.body.type_hint %}
+{% if endpoint.body.type_hint not in model_imports %}
+{% set _ = model_imports.append(endpoint.body.type_hint) %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if model_imports %}
+from ..models import (
+{% for model in model_imports %}
+    {{ model }},
+{% endfor %}
+)
+{% endif %}
+
+app = typer.Typer(
+    name="{{ tag | kebab_case }}",
+    help="{{ tag | pascal_case }} operations.",
+    no_args_is_help=True,
+)
+
+
+def get_client() -> AuthenticatedClient:
+    """Create an authenticated client."""
+    return AuthenticatedClient(
+        base_url=os.environ.get("WAHA_URL", "http://localhost:3000"),
+        token=os.environ.get("WAHA_API_KEY", ""),
+    )
+
+
+def output_result(data, output_format: str = "json") -> None:
+    """Output result in the specified format."""
+    if data is None:
+        rprint("[yellow]No data returned[/yellow]")
+        return
+    if output_format == "json":
+        if isinstance(data, (dict, list)):
+            rprint(json.dumps(data, indent=2, default=str))
+        else:
+            rprint(str(data))
+    else:
+        rprint(str(data))
+
+{% for endpoint in endpoints %}
+{% set clean_name = endpoint.python_name | replace(tag + '_controller_', '') | replace('_controller_', '') | replace(tag + '_', '') %}
+
+@app.command("{{ clean_name | replace('_', '-') }}")
+def {{ endpoint.python_name }}_cmd(
+    ctx: typer.Context,
+{% for param in endpoint.parameters %}
+{% if param.required %}
+{% if param.enum_values %}
+    {{ param.python_name }}: Annotated[
+        str,
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }} (choices: {{ param.enum_values | join(', ') }})",
+        ),
+    ],
+{% elif '{' + param.name + '}' in endpoint.path %}
+    {{ param.python_name }}: Annotated[
+        str,
+        typer.Argument(help="{{ param.description or param.name }}"),
+    ],
+{% elif 'bool' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        bool,
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}/--no-{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ],
+{% elif 'int' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        int,
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ],
+{% elif 'float' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        float,
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ],
+{% elif 'list[str]' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        list[str],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ],
+{% else %}
+    {{ param.python_name }}: Annotated[
+        str,
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ],
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.python_name == 'session' %}
+    session: Annotated[
+        str,
+        typer.Option(
+            "--session", "-s",
+            envvar="WAHA_SESSION",
+            help="{{ param.description or 'Session name' }}",
+        ),
+    ] = "{{ param.default or 'default' }}",
+{% elif param.enum_values %}
+    {{ param.python_name }}: Annotated[
+        Optional[str],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }} (choices: {{ param.enum_values | join(', ') }})",
+        ),
+    ] = {% if param.default is string %}"{{ param.default }}"{% elif param.default is none %}None{% else %}{{ param.default }}{% endif %},
+{% elif 'bool' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}/--no-{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ] = {% if param.default is sameas true %}True{% elif param.default is sameas false %}False{% else %}None{% endif %},
+{% elif 'int' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        Optional[int],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ] = {% if param.default is none %}None{% else %}{{ param.default }}{% endif %},
+{% elif 'float' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        Optional[float],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ] = {% if param.default is none %}None{% else %}{{ param.default }}{% endif %},
+{% elif 'list[str]' in param.type_hint %}
+    {{ param.python_name }}: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ] = None,
+{% else %}
+    {{ param.python_name }}: Annotated[
+        Optional[str],
+        typer.Option(
+            "--{{ param.python_name | replace('_', '-') }}",
+            help="{{ param.description or param.name }}",
+        ),
+    ] = {% if param.default is string %}"{{ param.default }}"{% elif param.default is none %}None{% else %}{{ param.default }}{% endif %},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body_json: Annotated[
+        Optional[str],
+        typer.Option(
+            "--body", "-b",
+            help="Request body as JSON string",
+        ),
+    ] = None,
+{% endif %}
+) -> None:
+    """{{ endpoint.summary or endpoint.python_name }}
+
+    {{ endpoint.description or '' }}
+    """
+    client = get_client()
+    output_format = ctx.obj.get("output", "json") if ctx.obj else "json"
+
+{% if endpoint.body %}
+{% set body_type = endpoint.body.type_hint %}
+{% set is_model_type = body_type not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and '|' not in body_type and 'list[' not in body_type and 'dict[' not in body_type %}
+    body = None
+    if body_json:
+        try:
+            body_data = json.loads(body_json)
+{% if is_model_type %}
+            body = {{ body_type }}.from_dict(body_data)
+{% else %}
+            body = body_data
+{% endif %}
+        except json.JSONDecodeError as e:
+            rprint(f"[red]Invalid JSON in body: {e}[/red]")
+            raise typer.Exit(1)
+{% endif %}
+
+    try:
+        result = {{ tag }}.{{ endpoint.python_name }}_sync(
+            client=client,
+{% for param in endpoint.parameters %}
+            {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if endpoint.body %}
+            body=body,
+{% endif %}
+        )
+        output_result(result, output_format)
+    except Exception as e:
+        rprint(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+{% endfor %}

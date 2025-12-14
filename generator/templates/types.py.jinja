@@ -1,0 +1,50 @@
+"""Type definitions for WAHA API client."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from http import HTTPStatus
+from typing import Any, Generic, TypeVar
+
+T = TypeVar("T")
+
+
+@dataclass
+class Response(Generic[T]):
+    """A response from the API.
+
+    Attributes:
+        status_code: The HTTP status code of the response.
+        content: The raw bytes content of the response.
+        headers: The headers from the response.
+        parsed: The parsed response data (if any).
+    """
+
+    status_code: HTTPStatus
+    content: bytes
+    headers: dict[str, str]
+    parsed: T | None
+
+
+class Unset:
+    """A sentinel class for unset values.
+
+    Use UNSET instead of None to distinguish between None and unset.
+    """
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET: Unset = Unset()
+
+
+FileJsonType = tuple[str | None, bytes, str | None]
+
+
+def is_set(value: Any) -> bool:
+    """Check if a value is set (not UNSET)."""
+    return not isinstance(value, Unset)

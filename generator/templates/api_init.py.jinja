@@ -1,0 +1,13 @@
+"""WAHA API modules - Auto-generated from OpenAPI spec."""
+
+from __future__ import annotations
+
+{% for tag in tags %}
+from . import {{ tag }}
+{% endfor %}
+
+__all__ = [
+{% for tag in tags %}
+    "{{ tag }}",
+{% endfor %}
+]

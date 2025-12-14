@@ -1,0 +1,149 @@
+"""WAHA CLI - Auto-generated from OpenAPI spec.
+
+A comprehensive command-line interface for the WAHA WhatsApp API.
+
+Environment Variables:
+    WAHA_URL: The base URL for the WAHA API (default: http://localhost:3000)
+    WAHA_API_KEY: The API key for authentication
+    WAHA_SESSION: The default session name (default: default)
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from typing import Annotated, Any, Optional
+
+import typer
+from rich import print as rprint
+from rich.console import Console
+from rich.table import Table
+
+from ..client import AuthenticatedClient
+
+# Import CLI subcommands
+{% for tag in tags %}
+from . import {{ tag }} as {{ tag }}_cli
+{% endfor %}
+
+# Create the main app
+app = typer.Typer(
+    name="waha",
+    help="WAHA WhatsApp API CLI - Manage your WhatsApp sessions and send messages.",
+    no_args_is_help=True,
+)
+
+# Console for rich output
+console = Console()
+
+
+def get_client() -> AuthenticatedClient:
+    """Create an authenticated client from environment variables."""
+    base_url = os.environ.get("WAHA_URL", "http://localhost:3000")
+    api_key = os.environ.get("WAHA_API_KEY", "")
+
+    return AuthenticatedClient(
+        base_url=base_url,
+        token=api_key,
+    )
+
+
+def output_result(data: Any, output_format: str = "json") -> None:
+    """Output result in the specified format."""
+    if data is None:
+        rprint("[yellow]No data returned[/yellow]")
+        return
+
+    if output_format == "json":
+        if isinstance(data, (dict, list)):
+            rprint(json.dumps(data, indent=2, default=str))
+        else:
+            rprint(str(data))
+    elif output_format == "table":
+        if isinstance(data, list) and data:
+            table = Table()
+            if isinstance(data[0], dict):
+                for key in data[0].keys():
+                    table.add_column(key)
+                for item in data:
+                    table.add_row(*[str(v) for v in item.values()])
+            else:
+                table.add_column("Value")
+                for item in data:
+                    table.add_row(str(item))
+            console.print(table)
+        elif isinstance(data, dict):
+            table = Table()
+            table.add_column("Key")
+            table.add_column("Value")
+            for k, v in data.items():
+                table.add_row(str(k), str(v))
+            console.print(table)
+        else:
+            rprint(str(data))
+    else:
+        rprint(str(data))
+
+
+def handle_error(e: Exception) -> None:
+    """Handle and display errors."""
+    rprint(f"[red]Error: {e}[/red]")
+    sys.exit(1)
+
+
+# Global options
+@app.callback()
+def main(
+    ctx: typer.Context,
+    url: Annotated[
+        Optional[str],
+        typer.Option(
+            "--url",
+            "-u",
+            envvar="WAHA_URL",
+            help="WAHA API base URL",
+        ),
+    ] = None,
+    api_key: Annotated[
+        Optional[str],
+        typer.Option(
+            "--api-key",
+            "-k",
+            envvar="WAHA_API_KEY",
+            help="API key for authentication",
+        ),
+    ] = None,
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output format (json, table)",
+        ),
+    ] = "json",
+) -> None:
+    """WAHA WhatsApp API CLI.
+
+    Configure via environment variables or command-line options:
+        WAHA_URL: API base URL (default: http://localhost:3000)
+        WAHA_API_KEY: API key for authentication
+        WAHA_SESSION: Default session name
+    """
+    # Store global options in context
+    ctx.ensure_object(dict)
+    if url:
+        os.environ["WAHA_URL"] = url
+    if api_key:
+        os.environ["WAHA_API_KEY"] = api_key
+    ctx.obj["output"] = output
+
+
+# Register subcommands
+{% for tag in tags %}
+app.add_typer({{ tag }}_cli.app, name="{{ tag | kebab_case }}", help="{{ tag | pascal_case }} operations")
+{% endfor %}
+
+
+if __name__ == "__main__":
+    app()

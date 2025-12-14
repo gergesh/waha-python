@@ -1,0 +1,395 @@
+"""High-level object-oriented WAHA client - Auto-generated from OpenAPI spec.
+
+Usage:
+    from waha import Client
+
+    client = Client("http://localhost:3000", "your-api-key")
+    session = client.session("default")
+
+    # Work with groups
+    groups = session.groups.get_groups()
+    for group in groups:
+        print(group.name, group.jid)
+
+    # Work with contacts
+    contacts = session.contacts.get_all()
+
+    # Work with labels
+    labels = session.labels.get_all()
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from datetime import datetime
+from functools import cached_property
+from typing import Any, TYPE_CHECKING
+
+from .client import AuthenticatedClient
+from .api import (
+{% for tag in tags %}
+    {{ tag }} as {{ tag }}_api,
+{% endfor %}
+)
+{% set body_model_imports = ['SessionCreateRequest', 'SessionInfo', 'SessionDTO'] %}
+{# Collect body model types from endpoints #}
+{% for tag, endpoints in endpoints_by_tag.items() %}
+{% for endpoint in endpoints %}
+{% if endpoint.body and endpoint.body.type_hint not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and '|' not in endpoint.body.type_hint and 'list[' not in endpoint.body.type_hint and 'dict[' not in endpoint.body.type_hint %}
+{% if endpoint.body.type_hint not in body_model_imports %}
+{% set _ = body_model_imports.append(endpoint.body.type_hint) %}
+{% endif %}
+{% endif %}
+{# Collect response types from endpoints #}
+{% set resp = endpoint.response_type %}
+{% if resp and resp not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None'] and 'dict[' not in resp %}
+{% if 'list[' in resp %}
+{% set inner = resp[5:-1] %}
+{% if inner not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None'] and '|' not in inner and inner not in body_model_imports %}
+{% set _ = body_model_imports.append(inner) %}
+{% endif %}
+{% elif '|' in resp %}
+{# Handle union types like Base64File | QRCodeValue #}
+{% for part in resp.split(' | ') %}
+{% set clean_part = part | trim %}
+{% if clean_part not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None'] and 'dict[' not in clean_part and 'list[' not in clean_part and clean_part not in body_model_imports %}
+{% set _ = body_model_imports.append(clean_part) %}
+{% endif %}
+{% endfor %}
+{% elif resp not in body_model_imports %}
+{% set _ = body_model_imports.append(resp) %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{# Collect model types from entity properties #}
+{% set entity_names = entities | map(attribute='name') | list %}
+{% for entity in entities %}
+{% for prop in entity.properties %}
+{% set type_str = prop.type_hint %}
+{# Extract potential model names from type hints - skip if contains dict or list notation #}
+{% if 'dict[' not in type_str %}
+{% for part in type_str.split(' | ') %}
+{% set clean = part | trim | replace('list[', '') | replace(']', '') %}
+{% if clean not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None', 'dict', 'datetime'] and clean not in body_model_imports and clean not in entity_names and '[' not in clean %}
+{% set _ = body_model_imports.append(clean) %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+from .models import (
+{% for model in body_model_imports %}
+    {{ model }},
+{% endfor %}
+)
+
+if TYPE_CHECKING:
+    from typing import Self
+
+
+def _normalize_phone(phone: str) -> str:
+    """Normalize a phone number to WhatsApp chat ID format."""
+    phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if phone.startswith("+"):
+        phone = phone[1:]
+    if not phone.endswith("@c.us") and not phone.endswith("@g.us"):
+        phone = f"{phone}@c.us"
+    return phone
+
+
+def _get_field(data: Any, dict_key: str, attr_name: str, default: Any) -> Any:
+    """Get a field value from either dict or model data."""
+    if isinstance(data, dict):
+        return data.get(dict_key, default)
+    return getattr(data, attr_name, default)
+
+
+# =============================================================================
+# Entity Classes - Auto-generated from OpenAPI schemas with x-waha-entity
+# =============================================================================
+
+{% for entity in entities %}
+@dataclass
+class {{ entity.name }}:
+    """{{ entity.description or entity.name + ' entity.' }}
+
+    Generated from OpenAPI schema: {{ entity.schema_name }}
+    """
+
+    _data: Any  # Can be dict or model type from API response
+    _session: Session | None = field(default=None, repr=False)
+
+{% for prop in entity.properties %}
+{% set is_primitive = prop.type_hint in ['str', 'int', 'float', 'bool', 'Any'] or 'str |' in prop.type_hint or 'int |' in prop.type_hint or 'float |' in prop.type_hint or 'bool |' in prop.type_hint %}
+{% if 'list' in prop.type_hint %}
+{% set default_val = '[]' %}
+{% elif 'dict' in prop.type_hint %}
+{% set default_val = '{}' %}
+{% elif 'bool' in prop.type_hint %}
+{% set default_val = 'False' %}
+{% elif 'int' in prop.type_hint or 'float' in prop.type_hint %}
+{% set default_val = '0' %}
+{% elif is_primitive %}
+{% set default_val = '""' %}
+{% else %}
+{% set default_val = 'None' %}
+{% endif %}
+    @property
+    def {{ prop.python_name }}(self) -> {{ prop.type_hint | replace(' | None', '') }} | None:
+        """{{ (prop.description or prop.name) | replace('"', "'") | replace('\n', ' ') }}"""
+        return _get_field(self._data, "{{ prop.name }}", "{{ prop.python_name }}", {{ default_val }})
+{% endfor %}
+
+    def __repr__(self) -> str:
+{% if entity.properties | length > 0 %}
+{% set first_prop = entity.properties[0] %}
+        return f"{{ entity.name }}({{ first_prop.python_name }}={self.{{ first_prop.python_name }}!r})"
+{% else %}
+        return f"{{ entity.name }}()"
+{% endif %}
+
+{% endfor %}
+
+# =============================================================================
+# Tag-specific API Classes
+# =============================================================================
+
+{% for tag, endpoints in endpoints_by_tag.items() %}
+class {{ tag | pascal_case }}API:
+    """{{ tag | pascal_case }} operations for a session."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+        self._client = session._client
+
+{% for endpoint in endpoints %}
+{% set method_name_raw = endpoint.python_name | replace(tag + '_controller_', '') | replace('controller_', '') %}
+{% set method_name = 'list_all' if method_name_raw == 'list' else method_name_raw %}
+{% set has_session_param = endpoint.parameters | selectattr('name', 'equalto', 'session') | list | length > 0 %}
+{% set has_body = endpoint.body is not none %}
+{% set path_params = endpoint.parameters | selectattr('name', 'ne', 'session') | list %}
+{% set response_type = endpoint.response_type %}
+{% set is_list_response = response_type.startswith('list[') %}
+{% set inner_type = response_type[5:-1] if is_list_response else response_type %}
+{% set entity_class = schema_to_entity.get(inner_type) %}
+{% set body_type = endpoint.body.type_hint if endpoint.body else None %}
+{% set is_body_model = body_type and body_type not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and '|' not in body_type and 'list[' not in body_type and 'dict[' not in body_type %}
+    def {{ method_name }}(
+        self,
+{% for param in path_params %}
+{% if param.required %}
+        {{ param.python_name }}: {{ param.type_hint | replace('Any', 'str') }},
+{% endif %}
+{% endfor %}
+{% for param in path_params %}
+{% if not param.required %}
+        {{ param.python_name }}: {{ param.type_hint | replace('Any', 'str') }} = {% if param.default is none %}None{% elif param.default is string %}"{{ param.default }}"{% else %}{{ param.default }}{% endif %},
+{% endif %}
+{% endfor %}
+{% if has_body %}
+        body: dict[str, Any] | None = None,
+{% endif %}
+{% if entity_class %}
+{% if is_list_response %}
+    ) -> list[{{ entity_class }}]:
+{% else %}
+    ) -> {{ entity_class }}:
+{% endif %}
+{% elif response_type and response_type != 'Any' %}
+    ) -> {{ response_type }} | None:
+{% else %}
+    ) -> Any:
+{% endif %}
+        """{{ endpoint.summary or endpoint.python_name }}"""
+{% if has_body and is_body_model %}
+        body_obj = {{ body_type }}.from_dict(body) if body else None
+{% endif %}
+        result = {{ tag }}_api.{{ endpoint.python_name }}_sync(
+            client=self._client._client,
+{% if has_session_param %}
+            session=self._session.name,
+{% endif %}
+{% for param in path_params %}
+            {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if has_body %}
+{% if is_body_model %}
+            body=body_obj,
+{% else %}
+            body=body,
+{% endif %}
+{% endif %}
+        )
+{% if entity_class %}
+{% if is_list_response %}
+        return [{{ entity_class }}(_data=item, _session=self._session) for item in (result or [])]
+{% else %}
+        return {{ entity_class }}(_data=result or {}, _session=self._session)
+{% endif %}
+{% else %}
+        return result
+{% endif %}
+
+    async def {{ method_name }}_async(
+        self,
+{% for param in path_params %}
+{% if param.required %}
+        {{ param.python_name }}: {{ param.type_hint | replace('Any', 'str') }},
+{% endif %}
+{% endfor %}
+{% for param in path_params %}
+{% if not param.required %}
+        {{ param.python_name }}: {{ param.type_hint | replace('Any', 'str') }} = {% if param.default is none %}None{% elif param.default is string %}"{{ param.default }}"{% else %}{{ param.default }}{% endif %},
+{% endif %}
+{% endfor %}
+{% if has_body %}
+        body: dict[str, Any] | None = None,
+{% endif %}
+{% if entity_class %}
+{% if is_list_response %}
+    ) -> list[{{ entity_class }}]:
+{% else %}
+    ) -> {{ entity_class }}:
+{% endif %}
+{% elif response_type and response_type != 'Any' %}
+    ) -> {{ response_type }} | None:
+{% else %}
+    ) -> Any:
+{% endif %}
+        """{{ endpoint.summary or endpoint.python_name }} (async)"""
+{% if has_body and is_body_model %}
+        body_obj = {{ body_type }}.from_dict(body) if body else None
+{% endif %}
+        result = await {{ tag }}_api.{{ endpoint.python_name }}_asyncio(
+            client=self._client._client,
+{% if has_session_param %}
+            session=self._session.name,
+{% endif %}
+{% for param in path_params %}
+            {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if has_body %}
+{% if is_body_model %}
+            body=body_obj,
+{% else %}
+            body=body,
+{% endif %}
+{% endif %}
+        )
+{% if entity_class %}
+{% if is_list_response %}
+        return [{{ entity_class }}(_data=item, _session=self._session) for item in (result or [])]
+{% else %}
+        return {{ entity_class }}(_data=result or {}, _session=self._session)
+{% endif %}
+{% else %}
+        return result
+{% endif %}
+
+{% endfor %}
+
+{% endfor %}
+# =============================================================================
+# Client Classes
+# =============================================================================
+
+class Client:
+    """High-level WAHA client.
+
+    Args:
+        base_url: WAHA API base URL. Defaults to WAHA_URL env var or http://localhost:3000
+        token: API key for authentication. Defaults to WAHA_API_KEY env var.
+
+    Example:
+        client = Client()
+        session = client.session("default")
+        groups = session.groups.get_groups()
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        token: str | None = None,
+    ) -> None:
+        self._base_url = base_url or os.environ.get("WAHA_URL", "http://localhost:3000")
+        self._token = token or os.environ.get("WAHA_API_KEY", "")
+        self._client = AuthenticatedClient(
+            base_url=self._base_url,
+            token=self._token,
+        )
+        self.sessions = SessionManager(self)
+
+    @property
+    def api(self) -> AuthenticatedClient:
+        """Access the underlying API client for advanced usage."""
+        return self._client
+
+    def session(self, name: str = "default") -> Session:
+        """Get a session by name."""
+        return Session(self, name)
+
+    def __enter__(self) -> Self:
+        self._client.__enter__()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self._client.__exit__(*args)
+
+    async def __aenter__(self) -> Self:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self._client.__aexit__(*args)
+
+
+class SessionManager:
+    """Manage WAHA sessions."""
+
+    def __init__(self, client: Client) -> None:
+        self._client = client
+
+    def list_all(self, all: bool = False) -> list[SessionInfo] | None:
+        """List all sessions."""
+        return sessions_api.sessions_controller_list_sync(
+            client=self._client._client,
+            all=all,
+        )
+
+    def create(self, name: str, start: bool = True) -> SessionDTO | None:
+        """Create a new session."""
+        body = SessionCreateRequest.from_dict({"name": name, "start": start})
+        return sessions_api.sessions_controller_create_sync(
+            client=self._client._client,
+            body=body,
+        )
+
+    def get(self, name: str = "default") -> Session:
+        """Get a session by name."""
+        return Session(self._client, name)
+
+
+@dataclass
+class Session:
+    """A WhatsApp session - provides access to all WAHA API operations.
+
+    API methods are organized by namespace:
+        session.groups.get_groups()
+        session.contacts.get_all()
+        session.labels.get_all()
+        session.chatting.send_text(body={...})
+    """
+
+    _client: Client
+    name: str
+    _data: dict[str, Any] | None = field(default=None, repr=False)
+
+{% for tag in tags %}
+    @cached_property
+    def {{ tag }}(self) -> {{ tag | pascal_case }}API:
+        """{{ tag | pascal_case }} operations."""
+        return {{ tag | pascal_case }}API(self)
+
+{% endfor %}

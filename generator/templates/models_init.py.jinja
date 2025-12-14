@@ -1,0 +1,19 @@
+"""WAHA API Models - Auto-generated from OpenAPI spec."""
+
+from __future__ import annotations
+
+{% for model in models %}
+from .{{ model.name | snake_case }} import {{ model.python_name }}
+{% endfor %}
+{% for enum in enums %}
+from .{{ enum.name | snake_case }} import {{ enum.python_name }}
+{% endfor %}
+
+__all__ = [
+{% for model in models %}
+    "{{ model.python_name }}",
+{% endfor %}
+{% for enum in enums %}
+    "{{ enum.python_name }}",
+{% endfor %}
+]

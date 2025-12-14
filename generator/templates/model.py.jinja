@@ -1,0 +1,143 @@
+"""{{ model.python_name }} model - Auto-generated from OpenAPI spec."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, TYPE_CHECKING
+
+
+def _to_dict_value(value: Any) -> Any:
+    """Convert a value to dict representation, calling to_dict() if available."""
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    return value
+{% set ns = namespace(needs_datetime=false, needs_date=false) %}
+{% for prop in model.properties %}
+{% if 'datetime' in prop.type_hint %}
+{% set ns.needs_datetime = true %}
+{% endif %}
+{% if 'date' in prop.type_hint and 'datetime' not in prop.type_hint %}
+{% set ns.needs_date = true %}
+{% endif %}
+{% endfor %}
+{% if ns.needs_datetime %}
+from datetime import datetime
+{% endif %}
+{% if ns.needs_date %}
+from datetime import date
+{% endif %}
+
+{# Collect referenced model types for TYPE_CHECKING imports #}
+{% set model_refs = [] %}
+{% set all_model_names = all_models | map(attribute='python_name') | list %}
+{% for prop in model.properties %}
+{% set type_str = prop.type_hint %}
+{# Extract model names from type hints like "MeInfo | None", "list[App]", etc. #}
+{% for m in all_model_names %}
+{% if m in type_str and m != model.python_name and m not in model_refs %}
+{% set _ = model_refs.append(m) %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% if model_refs %}
+if TYPE_CHECKING:
+{% for ref in model_refs %}
+    from .{{ ref | snake_case }} import {{ ref }}
+{% endfor %}
+{% endif %}
+
+
+@dataclass
+class {{ model.python_name }}:
+    """{{ model.description or model.python_name + ' model.' }}
+
+    Attributes:
+{% for prop in model.properties %}
+        {{ prop.python_name }}: {{ prop.description or ('The ' + prop.python_name + ' value.') }}
+{% endfor %}
+    """
+
+{% for prop in model.properties %}
+{% if prop.required and prop.default is none %}
+    {{ prop.python_name }}: {{ prop.type_hint }}
+{% endif %}
+{% endfor %}
+{% for prop in model.properties %}
+{% if not prop.required or prop.default is not none %}
+{% if prop.default is none %}
+{% if 'list[' in prop.type_hint %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = field(default_factory=list)
+{% elif 'dict[' in prop.type_hint %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = field(default_factory=dict)
+{% elif '| None' in prop.type_hint %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = None
+{% else %}
+    {{ prop.python_name }}: {{ prop.type_hint }} | None = None
+{% endif %}
+{% elif prop.default is mapping %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = field(default_factory=lambda: {{ prop.default }})
+{% elif prop.default is sequence and prop.default is not string %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = field(default_factory=lambda: {{ prop.default }})
+{% elif prop.default is string %}
+{% if 'dict[' in prop.type_hint %}
+{# Type hint is dict but default is string - use str type instead #}
+    {{ prop.python_name }}: str = "{{ prop.default }}"
+{% else %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = "{{ prop.default }}"
+{% endif %}
+{% elif prop.default is sameas true %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = True
+{% elif prop.default is sameas false %}
+{% if 'dict[' in prop.type_hint %}
+{# Type hint is dict but default is bool - use bool type instead #}
+    {{ prop.python_name }}: bool = False
+{% else %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = False
+{% endif %}
+{% else %}
+    {{ prop.python_name }}: {{ prop.type_hint }} = {{ prop.default }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the model to a dictionary."""
+        result: dict[str, Any] = {}
+{% for prop in model.properties %}
+        if self.{{ prop.python_name }} is not None:
+{% if 'datetime' in prop.type_hint %}
+            result["{{ prop.name }}"] = self.{{ prop.python_name }}.isoformat() if isinstance(self.{{ prop.python_name }}, datetime) else self.{{ prop.python_name }}
+{% elif 'date' in prop.type_hint and 'datetime' not in prop.type_hint %}
+            result["{{ prop.name }}"] = self.{{ prop.python_name }}.isoformat() if isinstance(self.{{ prop.python_name }}, date) else self.{{ prop.python_name }}
+{% elif 'list[' in prop.type_hint %}
+            result["{{ prop.name }}"] = [_to_dict_value(item) for item in self.{{ prop.python_name }}]
+{% else %}
+            result["{{ prop.name }}"] = _to_dict_value(self.{{ prop.python_name }})
+{% endif %}
+{% endfor %}
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> {{ model.python_name }}:
+        """Create a model instance from a dictionary."""
+        return cls(
+{% for prop in model.properties %}
+{% if prop.required and prop.default is none and '| None' not in prop.type_hint %}
+            {{ prop.python_name }}=data["{{ prop.name }}"],
+{% elif prop.default is not none and prop.default is string %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", "{{ prop.default }}"),
+{% elif prop.default is sameas true %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", True),
+{% elif prop.default is sameas false %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", False),
+{% elif prop.default is not none and prop.default is number %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", {{ prop.default }}),
+{% elif prop.default is not none and prop.default is mapping %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", {{ prop.default }}),
+{% elif prop.default is not none and prop.default is sequence and prop.default is not string %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}", {{ prop.default }}),
+{% else %}
+            {{ prop.python_name }}=data.get("{{ prop.name }}"),
+{% endif %}
+{% endfor %}
+        )

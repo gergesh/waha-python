@@ -1,0 +1,355 @@
+"""{{ tag | pascal_case }} API - Auto-generated from OpenAPI spec."""
+
+from __future__ import annotations
+
+import json
+from http import HTTPStatus
+from typing import Any
+from urllib.parse import quote
+
+import httpx
+
+from ..client import AuthenticatedClient, Client
+from ..errors import UnexpectedStatus
+from ..types import UNSET, Response, Unset
+
+{% set model_imports = [] %}
+{% for endpoint in endpoints %}
+{# Collect body model types #}
+{% if endpoint.body and endpoint.body.type_hint not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and '|' not in endpoint.body.type_hint and 'list[' not in endpoint.body.type_hint and 'dict[' not in endpoint.body.type_hint %}
+{% if endpoint.body.type_hint not in model_imports %}
+{% set _ = model_imports.append(endpoint.body.type_hint) %}
+{% endif %}
+{% endif %}
+{# Collect response model types #}
+{% set resp = endpoint.response_type %}
+{% if resp not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None'] and 'dict[' not in resp %}
+{% if 'list[' in resp %}
+{% set inner = resp[5:-1] %}
+{% if inner not in ['Any', 'str', 'int', 'float', 'bool', 'bytes'] and 'dict[' not in inner and '|' not in inner and inner not in model_imports %}
+{% set _ = model_imports.append(inner) %}
+{% endif %}
+{% elif '|' in resp %}
+{# Handle union types like Base64File | QRCodeValue #}
+{% for part in resp.split(' | ') %}
+{% set clean_part = part | trim %}
+{% if clean_part not in ['Any', 'str', 'int', 'float', 'bool', 'bytes', 'None'] and 'dict[' not in clean_part and 'list[' not in clean_part and clean_part not in model_imports %}
+{% set _ = model_imports.append(clean_part) %}
+{% endif %}
+{% endfor %}
+{% elif resp not in model_imports %}
+{% set _ = model_imports.append(resp) %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if model_imports %}
+from ..models import (
+{% for model in model_imports %}
+    {{ model }},
+{% endfor %}
+)
+{% endif %}
+
+{% for endpoint in endpoints %}
+
+# ============================================================
+# {{ endpoint.python_name }}
+# ============================================================
+
+def _{{ endpoint.python_name }}_get_kwargs(
+{% for param in endpoint.parameters %}
+{% if param.required %}
+    {{ param.python_name }}: {{ param.type_hint }},
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.default is none %}
+    {{ param.python_name }}: {{ param.type_hint }} | Unset = UNSET,
+{% elif param.default is string %}
+    {{ param.python_name }}: {{ param.type_hint }} = "{{ param.default }}",
+{% else %}
+    {{ param.python_name }}: {{ param.type_hint }} = {{ param.default }},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body: {{ endpoint.body.type_hint }} | None = None,
+{% endif %}
+) -> dict[str, Any]:
+    """Build kwargs for {{ endpoint.python_name }}."""
+{% set path_params = endpoint.parameters | selectattr('name', 'in', endpoint.path) | list %}
+{% if path_params %}
+    path = "{{ endpoint.path }}"
+{% for param in endpoint.parameters %}
+{% if '{' + param.name + '}' in endpoint.path %}
+    path = path.replace("{{ '{' }}{{ param.name }}{{ '}' }}", quote(str({{ param.python_name }}), safe=""))
+{% endif %}
+{% endfor %}
+{% else %}
+    path = "{{ endpoint.path }}"
+{% endif %}
+
+    params: dict[str, Any] = {}
+{% for param in endpoint.parameters %}
+{% if '{' + param.name + '}' not in endpoint.path %}
+{% if param.required %}
+    params["{{ param.name }}"] = {{ param.python_name }}
+{% else %}
+    if not isinstance({{ param.python_name }}, Unset) and {{ param.python_name }} is not None:
+        params["{{ param.name }}"] = {{ param.python_name }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+    kwargs: dict[str, Any] = {
+        "method": "{{ endpoint.method }}",
+        "url": path,
+    }
+    if params:
+        kwargs["params"] = params
+{% if endpoint.body %}
+    if body is not None:
+        if hasattr(body, "to_dict"):
+            kwargs["json"] = body.to_dict()
+        else:
+            kwargs["json"] = body
+{% endif %}
+
+    return kwargs
+
+
+def _{{ endpoint.python_name }}_parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> {{ endpoint.response_type }} | None:
+    """Parse response for {{ endpoint.python_name }}."""
+    if response.status_code in (200, 201):
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            return None
+    if response.status_code == 204:
+        return None
+    if client.raise_on_unexpected_status:
+        raise UnexpectedStatus(response.status_code, response.content)
+    return None
+
+
+def _{{ endpoint.python_name }}_build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[{{ endpoint.response_type }}]:
+    """Build response for {{ endpoint.python_name }}."""
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=dict(response.headers),
+        parsed=_{{ endpoint.python_name }}_parse_response(client=client, response=response),
+    )
+
+
+def {{ endpoint.python_name }}_sync_detailed(
+    *,
+    client: AuthenticatedClient | Client,
+{% for param in endpoint.parameters %}
+{% if param.required %}
+    {{ param.python_name }}: {{ param.type_hint }},
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.default is none %}
+    {{ param.python_name }}: {{ param.type_hint }} | Unset = UNSET,
+{% elif param.default is string %}
+    {{ param.python_name }}: {{ param.type_hint }} = "{{ param.default }}",
+{% else %}
+    {{ param.python_name }}: {{ param.type_hint }} = {{ param.default }},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body: {{ endpoint.body.type_hint }} | None = None,
+{% endif %}
+) -> Response[{{ endpoint.response_type }}]:
+    """{{ endpoint.summary or endpoint.python_name }}
+
+    {{ endpoint.description or '' }}
+
+    Args:
+        client: The API client.
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}: {{ param.description or ('The ' + param.python_name + ' parameter.') }}
+{% endfor %}
+{% if endpoint.body %}
+        body: The request body.
+{% endif %}
+
+    Returns:
+        Response with parsed data and status code.
+    """
+    kwargs = _{{ endpoint.python_name }}_get_kwargs(
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if endpoint.body %}
+        body=body,
+{% endif %}
+    )
+
+    response = client.get_httpx_client().request(**kwargs)
+    return _{{ endpoint.python_name }}_build_response(client=client, response=response)
+
+
+def {{ endpoint.python_name }}_sync(
+    *,
+    client: AuthenticatedClient | Client,
+{% for param in endpoint.parameters %}
+{% if param.required %}
+    {{ param.python_name }}: {{ param.type_hint }},
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.default is none %}
+    {{ param.python_name }}: {{ param.type_hint }} | Unset = UNSET,
+{% elif param.default is string %}
+    {{ param.python_name }}: {{ param.type_hint }} = "{{ param.default }}",
+{% else %}
+    {{ param.python_name }}: {{ param.type_hint }} = {{ param.default }},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body: {{ endpoint.body.type_hint }} | None = None,
+{% endif %}
+) -> {{ endpoint.response_type }} | None:
+    """{{ endpoint.summary or endpoint.python_name }}
+
+    {{ endpoint.description or '' }}
+
+    Args:
+        client: The API client.
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}: {{ param.description or ('The ' + param.python_name + ' parameter.') }}
+{% endfor %}
+{% if endpoint.body %}
+        body: The request body.
+{% endif %}
+
+    Returns:
+        The parsed response data or None.
+    """
+    return {{ endpoint.python_name }}_sync_detailed(
+        client=client,
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if endpoint.body %}
+        body=body,
+{% endif %}
+    ).parsed
+
+
+async def {{ endpoint.python_name }}_asyncio_detailed(
+    *,
+    client: AuthenticatedClient | Client,
+{% for param in endpoint.parameters %}
+{% if param.required %}
+    {{ param.python_name }}: {{ param.type_hint }},
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.default is none %}
+    {{ param.python_name }}: {{ param.type_hint }} | Unset = UNSET,
+{% elif param.default is string %}
+    {{ param.python_name }}: {{ param.type_hint }} = "{{ param.default }}",
+{% else %}
+    {{ param.python_name }}: {{ param.type_hint }} = {{ param.default }},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body: {{ endpoint.body.type_hint }} | None = None,
+{% endif %}
+) -> Response[{{ endpoint.response_type }}]:
+    """{{ endpoint.summary or endpoint.python_name }} (async)
+
+    {{ endpoint.description or '' }}
+
+    Args:
+        client: The API client.
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}: {{ param.description or ('The ' + param.python_name + ' parameter.') }}
+{% endfor %}
+{% if endpoint.body %}
+        body: The request body.
+{% endif %}
+
+    Returns:
+        Response with parsed data and status code.
+    """
+    kwargs = _{{ endpoint.python_name }}_get_kwargs(
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if endpoint.body %}
+        body=body,
+{% endif %}
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+    return _{{ endpoint.python_name }}_build_response(client=client, response=response)
+
+
+async def {{ endpoint.python_name }}_asyncio(
+    *,
+    client: AuthenticatedClient | Client,
+{% for param in endpoint.parameters %}
+{% if param.required %}
+    {{ param.python_name }}: {{ param.type_hint }},
+{% endif %}
+{% endfor %}
+{% for param in endpoint.parameters %}
+{% if not param.required %}
+{% if param.default is none %}
+    {{ param.python_name }}: {{ param.type_hint }} | Unset = UNSET,
+{% elif param.default is string %}
+    {{ param.python_name }}: {{ param.type_hint }} = "{{ param.default }}",
+{% else %}
+    {{ param.python_name }}: {{ param.type_hint }} = {{ param.default }},
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if endpoint.body %}
+    body: {{ endpoint.body.type_hint }} | None = None,
+{% endif %}
+) -> {{ endpoint.response_type }} | None:
+    """{{ endpoint.summary or endpoint.python_name }} (async)
+
+    {{ endpoint.description or '' }}
+
+    Args:
+        client: The API client.
+{% for param in endpoint.parameters %}
+        {{ param.python_name }}: {{ param.description or ('The ' + param.python_name + ' parameter.') }}
+{% endfor %}
+{% if endpoint.body %}
+        body: The request body.
+{% endif %}
+
+    Returns:
+        The parsed response data or None.
+    """
+    return (
+        await {{ endpoint.python_name }}_asyncio_detailed(
+            client=client,
+{% for param in endpoint.parameters %}
+            {{ param.python_name }}={{ param.python_name }},
+{% endfor %}
+{% if endpoint.body %}
+            body=body,
+{% endif %}
+        )
+    ).parsed
+
+{% endfor %}

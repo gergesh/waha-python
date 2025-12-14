@@ -1,0 +1,42 @@
+[project]
+name = "waha"
+version = "0.1.0"
+description = "WAHA WhatsApp API client library and CLI"
+readme = "README.md"
+authors = [
+    { name = "Yoav Shai", email = "gergesh@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27.0",
+    "attrs>=24.2.0",
+    "python-dateutil>=2.9.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "jinja2>=3.1.6",
+    "ty>=0.0.1a34",
+]
+
+[project.scripts]
+waha = "waha.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/waha"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

@@ -1,0 +1,34 @@
+"""Error classes for WAHA API client."""
+
+from __future__ import annotations
+
+
+class WAHAError(Exception):
+    """Base exception for WAHA client errors."""
+
+
+class UnexpectedStatus(WAHAError):
+    """Raised when an unexpected HTTP status code is received."""
+
+    def __init__(self, status_code: int, content: bytes) -> None:
+        self.status_code = status_code
+        self.content = content
+        super().__init__(f"Unexpected status code: {status_code}")
+
+
+class AuthenticationError(WAHAError):
+    """Raised when authentication fails."""
+
+
+class ValidationError(WAHAError):
+    """Raised when request validation fails."""
+
+
+class APIError(WAHAError):
+    """Raised when the API returns an error response."""
+
+    def __init__(self, status_code: int, message: str, details: dict | None = None) -> None:
+        self.status_code = status_code
+        self.message = message
+        self.details = details or {}
+        super().__init__(f"API Error ({status_code}): {message}")

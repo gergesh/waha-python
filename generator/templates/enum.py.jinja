@@ -1,0 +1,15 @@
+"""{{ enum.python_name }} enum - Auto-generated from OpenAPI spec."""
+
+from enum import Enum
+
+
+class {{ enum.python_name }}(str, Enum):
+    """{{ enum.description or enum.python_name + ' enum.' }}"""
+
+{% for name, value in enum.values %}
+{% if value is string %}
+    {{ name }} = "{{ value }}"
+{% else %}
+    {{ name }} = {{ value }}
+{% endif %}
+{% endfor %}
