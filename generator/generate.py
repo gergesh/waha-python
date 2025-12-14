@@ -462,11 +462,14 @@ class WAHAGenerator:
         schema_to_entity = {e.schema_name: e.name for e in self.entities}
 
         template = self.env.get_template("wrapper.py.jinja")
+        # Create set of model names for type checking in template
+        model_names = {m.python_name for m in self.models}
         content = template.render(
             tags=list(self.endpoints.keys()),
             endpoints_by_tag=self.endpoints,
             entities=self.entities,
             schema_to_entity=schema_to_entity,
+            model_names=model_names,
         )
         (output_dir / "wrapper.py").write_text(content)
 

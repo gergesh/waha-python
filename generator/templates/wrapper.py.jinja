@@ -24,7 +24,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cached_property
-from typing import Any, TYPE_CHECKING
+from typing import Any, Protocol, TYPE_CHECKING
 
 from .client import AuthenticatedClient
 from .api import (
@@ -106,6 +106,34 @@ def _get_field(data: Any, dict_key: str, attr_name: str, default: Any) -> Any:
     return getattr(data, attr_name, default)
 
 
+class _FromDictProtocol(Protocol):
+    """Protocol for classes with from_dict class method."""
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Any: ...
+
+
+def _parse_field(
+    data: Any,
+    dict_key: str,
+    attr_name: str,
+    default: Any,
+    model_class: type[_FromDictProtocol] | None = None,
+    is_list: bool = False,
+) -> Any:
+    """Get and parse a field value, converting dicts to model instances."""
+    raw = _get_field(data, dict_key, attr_name, default)
+    if raw is None or raw == default or model_class is None:
+        return raw
+    if is_list and isinstance(raw, list):
+        return [
+            model_class.from_dict(item) if isinstance(item, dict) else item
+            for item in raw
+        ]
+    if isinstance(raw, dict):
+        return model_class.from_dict(raw)
+    return raw
+
+
 # =============================================================================
 # Entity Classes - Auto-generated from OpenAPI schemas with x-waha-entity
 # =============================================================================
@@ -136,10 +164,18 @@ class {{ entity.name }}:
 {% else %}
 {% set default_val = 'None' %}
 {% endif %}
+{# Check if type is a model that needs parsing #}
+{% set base_type = prop.type_hint | replace(' | None', '') | replace('list[', '') | replace(']', '') %}
+{% set is_model = base_type in model_names %}
+{% set is_list_of_model = 'list[' in prop.type_hint and is_model %}
     @property
     def {{ prop.python_name }}(self) -> {{ prop.type_hint | replace(' | None', '') }} | None:
         """{{ (prop.description or prop.name) | replace('"', "'") | replace('\n', ' ') }}"""
+{% if is_model or is_list_of_model %}
+        return _parse_field(self._data, "{{ prop.name }}", "{{ prop.python_name }}", {{ default_val }}, {{ base_type }}, {% if is_list_of_model %}True{% else %}False{% endif %})
+{% else %}
         return _get_field(self._data, "{{ prop.name }}", "{{ prop.python_name }}", {{ default_val }})
+{% endif %}
 {% endfor %}
 
     def __repr__(self) -> str:
